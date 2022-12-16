@@ -144,11 +144,11 @@ def build_BOW_models(train_data):
     ]
 
     nums_iterations = [
-        3000,
-        1000,
-        1000,
-        2000,
-        2000
+        300000,
+        100000,
+        100000,
+        20000,
+        20000
     ]
 
     return models_fns, models_args, nums_iterations
