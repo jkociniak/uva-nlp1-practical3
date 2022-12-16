@@ -1,4 +1,6 @@
 *.pt
 *.pkl
-/data
+*.png
 /trees
+/data
+/models

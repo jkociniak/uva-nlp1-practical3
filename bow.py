@@ -144,11 +144,11 @@ def build_BOW_models(train_data):
     ]
 
     nums_iterations = [
-        300000,
-        100000,
-        100000,
-        20000,
-        20000
+        3000,
+        1000,
+        1000,
+        2000,
+        2000
     ]
 
     return models_fns, models_args, nums_iterations
@@ -159,8 +159,5 @@ if __name__ == "__main__":
     seeds = ['42', '420', '4200']
     for seed in seeds:
         models_fns, models_args, nums_iterations = build_BOW_models(train_data)
-        # models_fns = models_fns[:1]
-        # models_args = models_args[:1]
-        # nums_iterations = nums_iterations[:1]
         run_experiments(models_fns, models_args, train_data, dev_data, test_data, nums_iterations,
                         base_name='BOW', seed=seed)

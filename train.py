@@ -3,6 +3,7 @@ import torch.nn as nn
 import numpy as np
 import time
 import random
+from evaluate import metrics2df, print_metrics
 from sklearn.metrics import f1_score, roc_auc_score
 
 
@@ -13,57 +14,6 @@ def print_parameters(model):
         total += np.prod(p.shape)
         print("{:24s} {:12s} requires_grad={}".format(name, str(list(p.shape)), p.requires_grad))
     print("\nTotal number of parameters: {}\n".format(total))
-
-
-# def prepare_example(example, vocab, device):
-#     """
-#     Map tokens to their IDs for a single example
-#     """
-#
-#     # vocab returns 0 if the word is not there (i2w[0] = <unk>)
-#     x = [vocab.w2i.get(t, 0) for t in example.tokens]
-#
-#     x = torch.LongTensor([x])
-#     x = x.to(device)
-#
-#     y = torch.LongTensor([example.label])
-#     y = y.to(device)
-#
-#     return x, y
-#
-#
-# def simple_evaluate(model, data, prep_fn=prepare_example, **kwargs):
-#     """Accuracy of a model on given data set."""
-#     correct = 0
-#     total = 0
-#     model.eval()  # disable dropout (explained later)
-#
-#     for example in data:
-#         # convert the example input and label to PyTorch tensors
-#         x, target = prep_fn(example, model.vocab)
-#
-#         # forward pass without backpropagation (no_grad)
-#         # get the output from the neural network for input x
-#         with torch.no_grad():
-#             logits = model(x)
-#
-#         # get the prediction
-#         prediction = logits.argmax(dim=-1)
-#
-#         # add the number of correct predictions to the total correct
-#         correct += (prediction == target).sum().item()
-#         total += 1
-#
-#     return correct, total, correct / float(total)
-#
-#
-# def get_examples(data, shuffle=True, **kwargs):
-#     """Shuffle data set and return 1 example at a time (until nothing left)"""
-#     if shuffle:
-#         print("Shuffling training data")
-#         random.shuffle(data)  # shuffle training data each epoch
-#     for example in data:
-#         yield example
 
 
 def get_minibatch(data, batch_size=25, shuffle=True):
@@ -161,14 +111,17 @@ def test_eval(model, data, device,
         total += targets_batch.size(0)
     probs = np.concatenate(probs)
     targets = np.concatenate(targets)
-
-    roc_auc = roc_auc_score(targets, probs, multi_class='ovr', average='macro')
     predictions = probs.argmax(axis=-1)
-    f1 = f1_score(targets, predictions, average='macro')
+
+    f1_scores = {}
+    roc_aucs = {}
+    for average in ['micro', 'macro', 'weighted']:
+        f1_scores[average] = f1_score(targets, predictions, average=average)
+        roc_aucs[average] = roc_auc_score(targets, probs, multi_class='ovr', average=average)
     correct = (predictions == targets).sum().item()
     accuracy = correct / float(total)
 
-    return accuracy, f1, roc_auc
+    return accuracy, f1_scores, roc_aucs
 
 
 def check_correctness(input):
@@ -261,7 +214,7 @@ def train_model(model, optimizer,
                     print("new highscore")
                     best_eval = accuracy
                     best_iter = iter_i
-                    path = "{}.pt".format(model.__class__.__name__)
+                    path = "{}_best_seed={}.pt".format(model.__class__.__name__, seed)
                     ckpt = {
                         "state_dict": model.state_dict(),
                         "optimizer_state_dict": optimizer.state_dict(),
@@ -278,25 +231,31 @@ def train_model(model, optimizer,
                 print("Loading best model")
                 path = "{}_best_seed={}.pt".format(model.__class__.__name__, seed)
                 ckpt = torch.load(path)
+                new_path = "{}_FINAL_best_seed={}.pt".format(model.__class__.__name__, seed)
+                torch.save(ckpt, new_path)
                 model.load_state_dict(ckpt["state_dict"])
 
-                train_acc, train_f1, train_roc_auc = test_eval_fn(
+                train_metrics = test_eval_fn(
                     model, train_data, device, batch_size=eval_batch_size,
                     batch_fn=batch_fn, prep_fn=prep_fn)
-                dev_acc, dev_f1, dev_roc_auc = test_eval_fn(
+                dev_metrics = test_eval_fn(
                     model, dev_data, device, batch_size=eval_batch_size,
                     batch_fn=batch_fn, prep_fn=prep_fn)
-                test_acc, test_f1, test_roc_auc = test_eval_fn(
+                test_metrics = test_eval_fn(
                     model, test_data, device, batch_size=eval_batch_size,
                     batch_fn=batch_fn, prep_fn=prep_fn)
 
-                print("best model iter {:d}: "
-                      "train acc={:.4f}, dev acc={:.4f}, test acc={:.4f}".format(
-                       best_iter, train_acc, dev_acc, test_acc))
+                metrics = [train_metrics, dev_metrics, test_metrics]
+                datasets = ['train', 'dev', 'test']
+                model_names = [f'{model.__class__.__name__} ({ds})' for ds in datasets]
+                seeds = [seed for _ in datasets]
+                metrics_df, statistics = metrics2df(metrics, model_names, seeds)
 
-                best_model_metrics = test_acc, test_f1, test_roc_auc
+                print("best model iter {:d}: ".format(best_iter))
+                print_metrics(metrics_df)
+                print_metrics(statistics)
 
-                return losses, accuracies, best_model_metrics
+                return losses, accuracies
 
 
 def prepare_treelstm_minibatch(mb, vocab, device):

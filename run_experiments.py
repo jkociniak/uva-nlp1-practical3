@@ -70,12 +70,3 @@ def run_experiments(models_fns, models_args, train_data, dev_data, test_data, nu
 
     plot_path = base_name + 'training_curves_seed=' + str(seed) + '.png'
     fig.savefig(plot_path)
-
-    # save test metrics
-    test_metrics = [r[2] for r in results]
-    columns = ['test_acc', 'test_f1', 'test_roc_auc']
-    test_metrics_df = pd.DataFrame(test_metrics, index=model_names, columns=columns)
-    test_metrics_df['seed'] = seed
-
-    test_metrics_path = base_name + 'test_metrics_seed=' + str(seed) + '.pkl'
-    test_metrics_df.to_pickle(test_metrics_path)
