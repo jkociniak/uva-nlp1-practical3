@@ -81,8 +81,8 @@ def build_sentiment_mappings():
     return i2t, t2i
 
 
-word2vec_path = 'data/googlenews.word2vec.300d.txt'
-glove_path = 'data/glove.840B.300d.sst.txt'
+word2vec_path = 'googlenews.word2vec.300d.txt'
+glove_path = 'glove.840B.300d.sst.txt'
 
 
 def build_pt_embeddings(pretrained_model):
