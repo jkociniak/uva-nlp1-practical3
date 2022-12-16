@@ -232,8 +232,8 @@ def build_TreeLSTM_models():
     ]
 
     nums_iterations = [
-        3000,
-        3000
+        30000,
+        30000
     ]
 
     return models_fns, models_args, nums_iterations
