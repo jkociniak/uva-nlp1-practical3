@@ -7,6 +7,7 @@ from nltk import Tree
 # A simple way to define a class is using namedtuple.
 Example = namedtuple("Example", ["tokens", "tree", "label", "transitions"])
 
+
 def filereader(path):
     with open(path, mode="r", encoding="utf-8") as f:
         for line in f:

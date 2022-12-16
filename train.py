@@ -6,17 +6,6 @@ import random
 from sklearn.metrics import f1_score, roc_auc_score
 
 
-def set_reproducibility(seed=42):
-    # Seed manually to make runs reproducible
-    # You need to set this again if you do multiple runs of the same model
-    torch.manual_seed(seed)
-
-    # When running on the CuDNN backend two further options must be set for reproducibility
-    if torch.cuda.is_available():
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
-
-
 # Here we print each parameter name, shape, and if it is trainable.
 def print_parameters(model):
     total = 0
@@ -169,13 +158,11 @@ def test_eval(model, data, device,
         probs_batch = logits.softmax(dim=-1)
         probs.append(probs_batch.cpu())
 
-        # add the number of correct predictions to the total correct
         total += targets_batch.size(0)
     probs = np.concatenate(probs)
     targets = np.concatenate(targets)
 
     roc_auc = roc_auc_score(targets, probs, multi_class='ovr', average='macro')
-
     predictions = probs.argmax(axis=-1)
     f1 = f1_score(targets, predictions, average='macro')
     correct = (predictions == targets).sum().item()
@@ -196,7 +183,7 @@ def check_correctness(input):
 
 
 def train_model(model, optimizer,
-                train_data, dev_data, test_data, device,
+                train_data, dev_data, test_data, device, seed,
                 num_iterations=10000,
                 print_every=1000, eval_every=1000,
                 batch_fn=get_minibatch,
@@ -289,7 +276,7 @@ def train_model(model, optimizer,
 
                 # evaluate on train, dev, and test with best model
                 print("Loading best model")
-                path = "{}.pt".format(model.__class__.__name__)
+                path = "{}_best_seed={}.pt".format(model.__class__.__name__, seed)
                 ckpt = torch.load(path)
                 model.load_state_dict(ckpt["state_dict"])
 
@@ -310,3 +297,30 @@ def train_model(model, optimizer,
                 best_model_metrics = test_acc, test_f1, test_roc_auc
 
                 return losses, accuracies, best_model_metrics
+
+
+def prepare_treelstm_minibatch(mb, vocab, device):
+    """
+    Returns sentences reversed (last word first)
+    Returns transitions together with the sentences.
+    """
+    batch_size = len(mb)
+    maxlen = max([len(ex.tokens) for ex in mb])
+
+    # vocab returns 0 if the word is not there
+    # NOTE: reversed sequence!
+    x = [pad([vocab.w2i.get(t, 0) for t in ex.tokens], maxlen)[::-1] for ex in mb]
+
+    x = torch.LongTensor(x)
+    x = x.to(device)
+
+    y = [ex.label for ex in mb]
+    y = torch.LongTensor(y)
+    y = y.to(device)
+
+    maxlen_t = max([len(ex.transitions) for ex in mb])
+    transitions = [pad(ex.transitions, maxlen_t, pad_value=2) for ex in mb]
+    transitions = np.array(transitions)
+    transitions = transitions.T  # time-major
+
+    return (x, transitions), y

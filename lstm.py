@@ -1,6 +1,9 @@
 import torch
 import torch.nn as nn
 import math
+from prepare_data import load_data
+from vocabulary import build_sentiment_mappings, build_pt_embeddings
+from run_experiments import run_experiments
 
 
 class MyLSTMCell(nn.Module):
@@ -127,3 +130,43 @@ class LSTMClassifier(nn.Module):
         # we use the last hidden state to classify the sentence
         logits = self.output_layer(final)
         return logits
+
+
+class LSTMClassifier_Glove(LSTMClassifier):
+    pass
+
+
+class LSTMClassifier_W2V(LSTMClassifier):
+    pass
+
+
+def build_LSTM_models():
+    v_glove, vectors_glove = build_pt_embeddings('glove')
+    v_w2v, vectors_w2v = build_pt_embeddings('w2v')
+    i2t, t2i = build_sentiment_mappings()
+
+    models_fns = [
+        LSTMClassifier_Glove,
+        LSTMClassifier_W2V,
+    ]
+
+    models_args = [
+        (len(v_glove.w2i), 300, 100, len(t2i), v_glove, vectors_glove),
+        (len(v_w2v.w2i), 300, 100, len(t2i), v_w2v, vectors_w2v)
+    ]
+
+    nums_iterations = [
+        50000,
+        50000
+    ]
+
+    return models_fns, models_args, nums_iterations
+
+
+if __name__ == "__main__":
+    train_data, dev_data, test_data = load_data()
+    seeds = ['42', '420', '4200']
+    for seed in seeds:
+        models_fns, models_args, nums_iterations = build_LSTM_models()
+        run_experiments(models_fns, models_args, train_data, dev_data, test_data, nums_iterations,
+                        base_name='LSTM', seed=seed)

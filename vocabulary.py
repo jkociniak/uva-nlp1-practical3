@@ -85,7 +85,9 @@ word2vec_path = 'data/googlenews.word2vec.300d.txt'
 glove_path = 'data/glove.840B.300d.sst.txt'
 
 
-def build_pt_embeddings(path=glove_path):
+def build_pt_embeddings(pretrained_model):
+    assert pretrained_model in ['glove', 'w2v']
+    path = glove_path if pretrained_model == 'glove' else word2vec_path
     v = Vocabulary()
     embedding_dim = 300
     unk_embedding = [0] * embedding_dim

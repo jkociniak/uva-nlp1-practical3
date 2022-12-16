@@ -1,5 +1,8 @@
 import torch
 import torch.nn as nn
+from vocabulary import build_vocabulary, build_sentiment_mappings, build_pt_embeddings
+from prepare_data import load_data
+from run_experiments import run_experiments
 
 
 class BOW(nn.Module):
@@ -108,3 +111,56 @@ class PTDeepCBOW(DeepCBOW):
         self.embed.weight.data.copy_(torch.from_numpy(vectors))
         # disable training the pre-trained embeddings
         self.embed.weight.requires_grad = False
+
+
+class PTDeepCBOW_Glove(PTDeepCBOW):
+    pass
+
+
+class PTDeepCBOW_W2V(PTDeepCBOW):
+    pass
+
+
+def build_BOW_models(train_data):
+    v = build_vocabulary([train_data])
+    v_glove, vectors_glove = build_pt_embeddings('glove')
+    v_w2v, vectors_w2v = build_pt_embeddings('w2v')
+    i2t, t2i = build_sentiment_mappings()
+
+    models_fns = [
+        BOW,
+        CBOW,
+        DeepCBOW,
+        PTDeepCBOW_Glove,
+        PTDeepCBOW_W2V,
+    ]
+
+    models_args = [
+        (len(v.w2i), len(t2i), v),
+        (len(v.w2i), 300, len(t2i), v),
+        (len(v.w2i), 300, 100, len(t2i), v),
+        (len(v_glove.w2i), 300, 100, len(t2i), v_glove, vectors_glove),
+        (len(v_w2v.w2i), 300, 100, len(t2i), v_w2v, vectors_w2v)
+    ]
+
+    nums_iterations = [
+        300000,
+        100000,
+        100000,
+        20000,
+        20000
+    ]
+
+    return models_fns, models_args, nums_iterations
+
+
+if __name__ == "__main__":
+    train_data, dev_data, test_data = load_data()
+    seeds = ['42', '420', '4200']
+    for seed in seeds:
+        models_fns, models_args, nums_iterations = build_BOW_models(train_data)
+        # models_fns = models_fns[:1]
+        # models_args = models_args[:1]
+        # nums_iterations = nums_iterations[:1]
+        run_experiments(models_fns, models_args, train_data, dev_data, test_data, nums_iterations,
+                        base_name='BOW', seed=seed)
